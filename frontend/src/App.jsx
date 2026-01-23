@@ -74,6 +74,27 @@ function App() {
     }
   }
 
+    async function addNewComment(todoId) {
+    try {
+      const url = `${TODOLIST_API_URL}${todoId}/comments/`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 'message': newComments[todoId] || "" }),
+      });
+      if (response.ok) {
+        setNewComments({ ...newComments, [todoId]: "" });
+        await fetchTodoList();
+      }
+    } catch (error) {
+      console.error("Error adding new comment:", error);
+    }
+  }
+
+  const [newComments, setNewComments] = useState({});
+
   return (
     <>
       <h1>Todo List</h1>
@@ -93,6 +114,17 @@ function App() {
                 </ul>
               </>
             )}
+              <div className="new-comment-forms">
+                <input
+                  type="text"
+                  value={newComments[todo.id] || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setNewComments({ ...newComments, [todo.id]: value });
+                  }}
+                />
+                 <button onClick={() => {addNewComment(todo.id)}}>Add Comment</button>
+            </div>
           </li>
         ))}
       </ul>
@@ -101,5 +133,7 @@ function App() {
     </>
   )
 }
+
+
 
 export default App
