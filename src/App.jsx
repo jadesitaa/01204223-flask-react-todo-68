@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import viteLogo from '../public/vite.svg';
 import './App.css'
 
 import TodoItem from './TodoItem.jsx'
@@ -20,7 +20,7 @@ function App() {
   async function fetchTodoList() {
     try {
       const response = await fetch(TODOLIST_API_URL);
-      if (!response.ok) { 
+      if (!response.ok) {
         throw new Error('Network error');
       }
       const data = await response.json();
@@ -63,7 +63,7 @@ function App() {
       console.error("Error adding new todo:", error);
     }
   }
-async function deleteTodo(id) {
+  async function deleteTodo(id) {
     const delete_api_url = `${TODOLIST_API_URL}${id}/`;
     try {
       const response = await fetch(delete_api_url, {
@@ -100,9 +100,9 @@ async function deleteTodo(id) {
     <>
       <h1>Todo List</h1>
       <ul>
-      {todoList.map(todo => (
-          <TodoItem 
-            key={todo.id} 
+        {todoList.map(todo => (
+          <TodoItem
+            key={todo.id}
             todo={todo}
             toggleDone={toggleDone}
             deleteTodo={deleteTodo}
@@ -110,12 +110,12 @@ async function deleteTodo(id) {
           />
         ))}
       </ul>
-      New: <input type="text" value={newTitle} onChange={(e) => {setNewTitle(e.target.value)}} />
-      <button onClick={() => {addNewTodo()}}>Add</button>
+      New: <input type="text" value={newTitle} onChange={(e) => { setNewTitle(e.target.value) }} />
+      <button onClick={() => { addNewTodo() }}>Add</button>
     </>
   )
 }
 
 
 export default App
-﻿
+
