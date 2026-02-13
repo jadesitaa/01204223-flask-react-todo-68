@@ -31,7 +31,7 @@ function App() {
   }
 
   async function toggleDone(id) {
-    const toggle_api_url = ${TODOLIST_API_URL}${id}/toggle/
+    const toggle_api_url = `${TODOLIST_API_URL}${id}/toggle/`;
     try {
       const response = await fetch(toggle_api_url, {
         method: 'PATCH',
@@ -64,7 +64,7 @@ function App() {
     }
   }
 async function deleteTodo(id) {
-    const delete_api_url = ${TODOLIST_API_URL}${id}/
+    const delete_api_url = `${TODOLIST_API_URL}${id}/`;
     try {
       const response = await fetch(delete_api_url, {
         method: 'DELETE',
@@ -78,7 +78,7 @@ async function deleteTodo(id) {
   }
   async function addNewComment(todoId, newComment) {     // เพิ่ม parameter
     try {
-      const url = ${TODOLIST_API_URL}${todoId}/comments/;
+      const url = `${TODOLIST_API_URL}${todoId}/comments/`;
       const response = await fetch(url, {
         method: 'POST',
         headers: {
