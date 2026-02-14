@@ -17,6 +17,7 @@ def get_todos():
 @app.route('/api/todos/', methods=['POST'])
 def add_todo():
     data = request.get_json()
+<<<<<<< HEAD
     todo = new_todo(data)
     if todo:
         todo_list.append(todo)
@@ -60,3 +61,44 @@ def delete_todo(id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+=======
+    todo = TodoItem(
+        title=data['title'],
+        done=data.get('done', False)
+    )
+    db.session.add(todo)
+    db.session.commit()
+    return jsonify(todo.to_dict())
+
+@app.route('/api/todos/<int:id>/toggle/', methods=['PATCH'])
+def toggle_todo(id):
+    todo = TodoItem.query.get_or_404(id)
+    todo.done = not todo.done
+    db.session.commit()
+    return jsonify(todo.to_dict())
+
+@app.route('/api/todos/<int:id>/', methods=['DELETE'])
+def delete_todo(id):
+    todo = TodoItem.query.get_or_404(id)
+    db.session.delete(todo)
+    db.session.commit()
+    return jsonify({'message': 'Todo deleted successfully'})
+
+
+@app.route('/api/todos/<int:todo_id>/comments/', methods=['POST'])
+def add_comment(todo_id):
+    todo_item = TodoItem.query.get_or_404(todo_id)
+
+    data = request.get_json()
+    if not data or 'message' not in data:
+        return jsonify({'error': 'Comment message is required'}), 400
+
+    comment = Comment(
+        message=data['message'],
+        todo_id=todo_item.id
+    )
+    db.session.add(comment)
+    db.session.commit()
+ 
+    return jsonify(comment.to_dict())
+>>>>>>> 07ac9f5a2e8abfa2752614f10cc0715ffc5da1f5
