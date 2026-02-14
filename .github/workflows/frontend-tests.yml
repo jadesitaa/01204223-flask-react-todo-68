@@ -19,6 +19,7 @@ jobs:
         with:
           node-version: '20'
 
+      # --- เพิ่มส่วนที่หายไปด้านล่างนี้ค่ะ ---
       - name: Install dependencies
         run: npm install
 
