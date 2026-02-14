@@ -2,12 +2,11 @@ name: Frontend Tests
 
 on:
   push:
-    # แก้ไขให้ตรงกับชื่อโฟลเดอร์จริงของคุณ
     paths:
-      - 'first-react-app/**'
+      - 'frontend/**'
   pull_request:
     paths:
-      - 'first-react-app/**'
+      - 'frontend/**'
   workflow_dispatch:
 
 jobs:
@@ -16,8 +15,7 @@ jobs:
 
     defaults:
       run:
-        # ระบุโฟลเดอร์ที่เก็บ package.json ให้ถูกต้อง
-        working-directory: first-react-app
+        working-directory: frontend
 
     steps:
       - name: Checkout repository
@@ -25,13 +23,13 @@ jobs:
 
       - name: Use Node.js
         uses: actions/setup-node@v4
-        with:  # แก้ไขการย่อหน้าตรงนี้ให้ตรงกับ uses
+        with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: first-react-app/package-lock.json
+          cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Install dependencies
-        run: npm install  # แนะนำให้ใช้ install หากยังไม่มีไฟล์ lock ที่สมบูรณ์
+        run: npm ci
 
       - name: Run tests
         run: npm test
