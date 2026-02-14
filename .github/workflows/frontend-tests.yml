@@ -2,7 +2,7 @@ name: Frontend Tests
 
 on:
   push:
-    branches: [ main, master ] # รองรับทั้งสองชื่อ
+    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -20,7 +20,6 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        # สั่งให้หา package.json จากทุกที่ถ้าหาที่ root ไม่เจอ
         run: npm install
 
       - name: Run tests
