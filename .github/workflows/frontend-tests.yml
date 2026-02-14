@@ -2,9 +2,9 @@ name: Frontend Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ] # รองรับทั้งสองชื่อ
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -18,9 +18,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
+        # สั่งให้หา package.json จากทุกที่ถ้าหาที่ root ไม่เจอ
         run: npm install
 
       - name: Run tests
