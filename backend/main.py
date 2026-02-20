@@ -1,104 +1,92 @@
 from flask import Flask, request, jsonify
+import click
 from flask_cors import CORS 
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_bcrypt import Bcrypt 
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
 
 app = Flask(__name__)
 CORS(app) 
+bcrypt = Bcrypt(app)
 
-todo_list = [
-    { "id": 1, "title": "Learn Flask", "done": True },
-    { "id": 2, "title": "Build a Flask App", "done": False },
-]
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todo.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'fdsjkfjioi2rjshr2345hrsh043j5oij5545'
 
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+jwt = JWTManager(app)
 
-@app.route('/api/todos/', methods=['GET'])      # ระบุให้รับแค่ GET
+# --- Models ---
+
+class Todo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    done = db.Column(db.Boolean, default=False)
+
+    def to_dict(self):
+        return {"id": self.id, "title": self.title, "done": self.done}
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    fullname = db.Column(db.String(120))
+    password = db.Column(db.String(200), nullable=False)
+
+# --- Routes ---
+
+@app.route('/api/todos/', methods=['GET'])
+# @jwt_required()  <-- ปิดไว้ก่อนเพื่อให้ React ดึงข้อมูลได้
 def get_todos():
-    return jsonify(todo_list)
+    todos = Todo.query.all()
+    return jsonify([todo.to_dict() for todo in todos])
 
 @app.route('/api/todos/', methods=['POST'])
 def add_todo():
     data = request.get_json()
-<<<<<<< HEAD
-    todo = new_todo(data)
-    if todo:
-        todo_list.append(todo)
-        return jsonify(todo)
-    else:
-        # return http response code 400 for bad requests
-        return (jsonify({'error': 'Invalid todo data'}), 400)
-
-def new_todo(data):
-    if len(todo_list) == 0:
-        id = 1
-    else:
-        id = 1 + max([todo['id'] for todo in todo_list])
-
-    if 'title' not in data:
-        return None
-    
-    return {
-        "id": id,
-        "title": data['title'],
-        "done": data.get('done', False),
-    }
-
-
-@app.route('/api/todos/<int:id>/toggle/', methods=['PATCH'])
-def toggle_todo(id):
-    todos = [todo for todo in todo_list if todo['id'] == id]
-    if not todos:
-        return (jsonify({'error': 'Todo not found'}), 404)
-    todo = todos[0]
-    todo['done'] = not todo['done']
-    return jsonify(todo)
-
-@app.route('/api/todos/<int:id>/', methods=['DELETE'])
-def delete_todo(id):
-    global todo_list
-    # งานของคุณ: ลบ todo item ที่มี id ตรงกับ id
-    # ถ้าทำงานถูกต้อง ให้คืน response ที่เป็น json ว่าง ๆ หรือ response message บางอย่างกลับไปก็ได้
-    todo_list = [todo for todo in todo_list if todo['id'] != id]
-    return jsonify({})
-
-if __name__ == '__main__':
-    app.run(debug=True)
-=======
-    todo = TodoItem(
-        title=data['title'],
-        done=data.get('done', False)
-    )
+    todo = Todo(title=data['title'], done=data.get('done', False))
     db.session.add(todo)
     db.session.commit()
     return jsonify(todo.to_dict())
 
 @app.route('/api/todos/<int:id>/toggle/', methods=['PATCH'])
 def toggle_todo(id):
-    todo = TodoItem.query.get_or_404(id)
+    todo = Todo.query.get_or_404(id)
     todo.done = not todo.done
     db.session.commit()
     return jsonify(todo.to_dict())
 
 @app.route('/api/todos/<int:id>/', methods=['DELETE'])
 def delete_todo(id):
-    todo = TodoItem.query.get_or_404(id)
+    todo = Todo.query.get_or_404(id)
     db.session.delete(todo)
     db.session.commit()
     return jsonify({'message': 'Todo deleted successfully'})
 
+# --- Auth Routes ---
 
-@app.route('/api/todos/<int:todo_id>/comments/', methods=['POST'])
-def add_comment(todo_id):
-    todo_item = TodoItem.query.get_or_404(todo_id)
-
+@app.route('/api/login/', methods=['POST'])
+def login():
     data = request.get_json()
-    if not data or 'message' not in data:
-        return jsonify({'error': 'Comment message is required'}), 400
+    user = User.query.filter_by(username=data.get('username')).first()
+    
+    # ตรวจสอบรหัสผ่านโดยใช้ bcrypt
+    if user and bcrypt.check_password_hash(user.password, data.get('password')):
+        access_token = create_access_token(identity=user.username)
+        return jsonify(access_token=access_token)
+    
+    return jsonify({'error': 'Invalid username or password'}), 401
 
-    comment = Comment(
-        message=data['message'],
-        todo_id=todo_item.id
-    )
-    db.session.add(comment)
+# --- CLI Commands ---
+
+@app.cli.command("create-user")
+@click.argument("username")
+@click.argument("fullname")
+@click.argument("password")
+def create_user(username, fullname, password):
+    hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+    new_user = User(username=username, fullname=fullname, password=hashed_pw)
+    db.session.add(new_user)
     db.session.commit()
- 
-    return jsonify(comment.to_dict())
->>>>>>> 07ac9f5a2e8abfa2752614f10cc0715ffc5da1f5
+    click.echo(f"User {username} created!")
