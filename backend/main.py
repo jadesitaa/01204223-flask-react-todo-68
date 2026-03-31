@@ -1,82 +1,102 @@
 from flask import Flask, request, jsonify
 import click
 from flask_cors import CORS 
-from flask_sqlalchemy import SQLAlchemy
+import os
 from flask_migrate import Migrate
-from flask_bcrypt import Bcrypt 
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
+from models import db, TodoItem, Comment, User
+from flask import send_from_directory
 
 app = Flask(__name__)
-CORS(app) 
-bcrypt = Bcrypt(app)
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todo.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'fdsjkfjioi2rjshr2345hrsh043j5oij5545'
 
-db = SQLAlchemy(app)
+try:
+    from local_config import CONFIG_DB_URI, CONFIG_JWT_SECRET
+except:
+    CONFIG_DB_URI = 'sqlite:///todos.db'
+    CONFIG_JWT_SECRET = 'fdslkfjsdlkufewhjroiewurewrew'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', CONFIG_DB_URI)
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', CONFIG_JWT_SECRET)
+
+db.init_app(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
-
-# --- Models ---
-
-class Todo(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    done = db.Column(db.Boolean, default=False)
-
-    def to_dict(self):
-        return {"id": self.id, "title": self.title, "done": self.done}
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    fullname = db.Column(db.String(120))
-    password = db.Column(db.String(200), nullable=False)
 
 # --- Routes ---
 
 @app.route('/api/todos/', methods=['GET'])
-# @jwt_required()  <-- ปิดไว้ก่อนเพื่อให้ React ดึงข้อมูลได้
+@jwt_required()
 def get_todos():
-    todos = Todo.query.all()
+    todos = TodoItem.query.all()
     return jsonify([todo.to_dict() for todo in todos])
 
 @app.route('/api/todos/', methods=['POST'])
+@jwt_required()
 def add_todo():
     data = request.get_json()
-    todo = Todo(title=data['title'], done=data.get('done', False))
+    todo = TodoItem(title=data['title'], done=data.get('done', False))
     db.session.add(todo)
     db.session.commit()
     return jsonify(todo.to_dict())
 
 @app.route('/api/todos/<int:id>/toggle/', methods=['PATCH'])
+@jwt_required()
 def toggle_todo(id):
-    todo = Todo.query.get_or_404(id)
+    todo = TodoItem.query.get_or_404(id)
     todo.done = not todo.done
     db.session.commit()
     return jsonify(todo.to_dict())
 
 @app.route('/api/todos/<int:id>/', methods=['DELETE'])
+@jwt_required()
 def delete_todo(id):
-    todo = Todo.query.get_or_404(id)
+    todo = TodoItem.query.get_or_404(id)
     db.session.delete(todo)
     db.session.commit()
     return jsonify({'message': 'Todo deleted successfully'})
 
+@app.route('/api/todos/<int:todo_id>/comments/', methods=['POST'])
+@jwt_required()
+def add_comment(todo_id):
+    current_user = get_jwt_identity()  # จะได้ username ของคนส่ง token
+    print("Current user:", current_user)  # Debug
+    todo_item = TodoItem.query.get_or_404(todo_id)
+
+    data = request.get_json()
+    if not data or 'message' not in data:
+        return jsonify({'error': 'Comment message is required'}), 400
+
+    comment = Comment(
+    message=data['message'],
+        todo_id=todo_item.id
+    )
+    db.session.add(comment)
+    db.session.commit()
+
+    return jsonify(comment.to_dict())
+
+
 # --- Auth Routes ---
 
-@app.route('/api/login/', methods=['POST'])
+@app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    user = User.query.filter_by(username=data.get('username')).first()
-    
-    # ตรวจสอบรหัสผ่านโดยใช้ bcrypt
-    if user and bcrypt.check_password_hash(user.password, data.get('password')):
-        access_token = create_access_token(identity=user.username)
-        return jsonify(access_token=access_token)
-    
-    return jsonify({'error': 'Invalid username or password'}), 401
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'error': 'Username and password are required'}), 400
+
+    user = User.query.filter_by(username=data['username']).first()
+    if not user or not user.check_password(data['password']):
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+    access_token = create_access_token(identity=user.username)
+    return jsonify({
+            'access_token': access_token, 
+            'message': 'Login successful'
+        }), 200
+
 
 # --- CLI Commands ---
 
@@ -85,8 +105,27 @@ def login():
 @click.argument("fullname")
 @click.argument("password")
 def create_user(username, fullname, password):
-    hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(username=username, fullname=fullname, password=hashed_pw)
-    db.session.add(new_user)
+    user = User.query.filter_by(username=username).first()
+    if user:
+        click.echo("User already exists.")
+        return
+    user = User(username=username, full_name=fullname)
+    user.set_password(password)
+    db.session.add(user)
     db.session.commit()
-    click.echo(f"User {username} created!")
+    click.echo(f"User {username} created successfully.")
+
+# Catch-all route: if the requested file exists in frontend-static, serve it;
+# otherwise fall back to serving the React app's index.html.
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    static_dir = os.path.join(app.root_path, 'frontend-static')
+    # If a specific file is requested and exists, serve it
+    if path and os.path.isfile(os.path.join(static_dir, path)):
+        return send_from_directory('frontend-static', path)
+    # Otherwise serve the app entrypoint
+    return send_from_directory('frontend-static', 'index.html')
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

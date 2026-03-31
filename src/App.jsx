@@ -6,7 +6,8 @@ import './App.css'
 import TodoItem from './TodoItem.jsx'
 
 function App() {
-  const TODOLIST_API_URL = 'http://localhost:5000/api/todos/';
+  const TODOLIST_API_URL = '/api/todos/';
+  const TODOLIST_LOGIN_URL = '/api/login/';
 
   const [todoList, setTodoList] = useState([]);
   const [newTitle, setNewTitle] = useState("");

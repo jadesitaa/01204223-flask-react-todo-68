@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ใส่แบบนี้เพื่อดักจับทุกที่ในโปรเจกต์
+local_config.py
+.env-temp
+frontend-static/
+*.json
